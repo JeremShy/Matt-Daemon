@@ -1,13 +1,4 @@
-#include <iostream>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
-#include <strings.h>
-
-#include <stdio.h>
+#include <maths.hpp>
 
 int	initialise_socket(char *porc)
 {
@@ -46,6 +37,11 @@ int main(int ac, char **av)
 	struct sockaddr_storage other;
 	socklen_t	other_len;
 
+	if (getuid() != 0)
+	{
+		std::cerr << "Error : You have to be root in order to use this program." << std::endl;
+		return (2);
+	}
 	if (ac != 2)
 	{
 		std::cerr << "Error : please enter a port name (#BalanceTonPort)." << std::endl;
@@ -54,9 +50,23 @@ int main(int ac, char **av)
 	suck = initialise_socket(av[1]);
 	if (suck == -1)
 		return (suck);
+
+	std::ifstream file("/var/lock/matt_daemon.lock");
+	if (!file)
+	{
+		std::ofstream file("/var/lock/matt_daemon.lock");
+		file.close();
+	}
+	else
+	{
+		std::cerr << "Error: /var/lock/matt_daemon.lock exists. Is an instance of Matt Daemon already running ?" << std::endl;
+		return (3);
+	}
+
 	listen(suck, 3);
 	other_len = sizeof(other);
 	client = accept(suck, reinterpret_cast<struct sockaddr *>(&other), &other_len);
 
+	remove("/var/lock/matt_daemon.lock");
 	return (0);
 }

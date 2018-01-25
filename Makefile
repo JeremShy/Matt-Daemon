@@ -1,6 +1,6 @@
 SRC_NAME =	main.cpp
 
-INC_PATH = ./
+INC_PATH = ./includes
 OBJ_PATH = ./obj/
 
 NAME = Matt_daemon
