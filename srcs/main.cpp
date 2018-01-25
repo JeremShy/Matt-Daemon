@@ -30,11 +30,56 @@ int	initialise_socket(char *porc)
 	return (sock);
 }
 
+void	daemonize()
+{
+	int	pid;
+	int len;
+	int	i;
+
+	pid = fork();
+	if (pid < 0)
+	{
+		std::cerr << "Can't fork !" << std::endl;
+		exit(1);
+	}
+	if (pid > 0)
+	{
+		exit(0);
+	}
+	if (setsid() == -1)
+	{
+		std::cerr << "Can't setsid !" << std::endl;
+		exit(2);
+	}
+	if (chdir("/") == -1)
+	{
+		std::cerr << "Can't chdir to / !" << std::endl;
+		exit(3);
+	}
+	i = 0;
+	while (i < 3)
+	{
+		close(i);
+		i++;
+	}
+	i = 0;
+	len = open("/dev/null", O_RDWR, 0);
+	while (i < 3)
+	{
+		dup2(len, i);
+		i++;
+	}
+	if (len > 2)
+		close(len);
+	umask(027);
+}
+
 int main(int ac, char **av)
 {
 	int		suck;
 	int		client;
 	struct sockaddr_storage other;
+	int		fd_lock;
 	socklen_t	other_len;
 
 	if (getuid() != 0)
@@ -47,26 +92,26 @@ int main(int ac, char **av)
 		std::cerr << "Error : please enter a port name (#BalanceTonPort)." << std::endl;
 		return (1);
 	}
+	fd_lock = open("/var/lock/matt_daemon.lock", O_CREAT | O_RDWR);
+	if (flock(fd_lock, LOCK_EX | LOCK_NB) == -1)
+	{
+		if (errno == EWOULDBLOCK)
+			std::cerr << "Error: /var/lock/matt_daemon.lock exists. Is an instance of Matt Daemon already running ?" << std::endl;
+		return (3);
+	}
+
+	daemonize();
+
 	suck = initialise_socket(av[1]);
 	if (suck == -1)
 		return (suck);
-
-	std::ifstream file("/var/lock/matt_daemon.lock");
-	if (!file)
-	{
-		std::ofstream file("/var/lock/matt_daemon.lock");
-		file.close();
-	}
-	else
-	{
-		std::cerr << "Error: /var/lock/matt_daemon.lock exists. Is an instance of Matt Daemon already running ?" << std::endl;
-		return (3);
-	}
 
 	listen(suck, 3);
 	other_len = sizeof(other);
 	client = accept(suck, reinterpret_cast<struct sockaddr *>(&other), &other_len);
 
-	remove("/var/lock/matt_daemon.lock");
+	flock(fd_lock, LOCK_UN);
+	close(fd_lock);
+	unlink("/var/lock/matt_daemon.lock");
 	return (0);
 }
