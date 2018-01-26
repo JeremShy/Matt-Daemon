@@ -1,6 +1,11 @@
 #include <maths.hpp>
 #include <Tintin_reporter.hpp>
 #include <Matt_Exception.hpp>
+#include <get_next_line.hpp>
+
+int g_nb_client = 0;
+int g_must_quit = 0;
+int	g_pid = 0;
 
 int	initialise_socket(char *porc)
 {
@@ -30,6 +35,15 @@ int	initialise_socket(char *porc)
 		return (-1);
 	}
 	return (sock);
+}
+
+void	handle_sigchld(int p)
+{
+	p = 0;
+	g_nb_client--;
+	wait4(-1, NULL, WNOHANG, NULL);
+	if (g_must_quit)
+		exit(0);
 }
 
 void	daemonize()
@@ -76,13 +90,67 @@ void	daemonize()
 	umask(027);
 }
 
+void fork_accept(int client, Tintin_reporter *logger)
+{
+	int	pid;
+	char	*s = NULL;
+
+	if (g_nb_client > 2)
+	{
+		logger->log(ERROR_LOG, "too much clients connected.");
+		shutdown(client, SHUT_RDWR);
+		close(client);
+		return ;
+	}
+	logger->log(GREEN_LOG, "new client connected.");
+	pid = fork();
+	if (pid == 0)
+	{
+		while (get_next_line(client, &s) > 0)
+		{
+			logger->log(INFO_LOG, std::string("received : ") + std::string(s));
+			if (std::string(s) == std::string("quit"))
+			{
+				logger->log(INFO_LOG, "quitting because of user input.");
+				g_must_quit = 1;
+				kill(g_pid, SIGSEGV);
+				break;
+			}
+		}
+		char buff[10] = {0};
+		int tmp;
+		int i = 0;
+
+		tmp = g_pid;
+		while (tmp)
+		{
+			if (buff[i] + (tmp & 15) <= 9)
+				buff[i] = (tmp & 15) + '0';
+			else
+				buff[i] = (tmp & 15) + 'a' - 10;
+			tmp = tmp >> 4;
+			i++;
+		}
+		logger->log(DISCO_LOG, std::string("Client disconnected.") + std::string(buff));
+		shutdown(client, SHUT_RDWR);
+		close(client);
+		exit(0);
+	}
+	if (pid > 0)
+	{
+		g_nb_client++;
+		return ;
+	}
+}
+
 int main(int ac, char **av)
 {
-	int		suck;
-	int		client;
-	struct sockaddr_storage other;
-	int		fd_lock;
-	socklen_t	other_len;
+	int						suck;
+	int						client;
+	struct sockaddr_storage	other;
+	int						fd_lock;
+	socklen_t				other_len;
+	Tintin_reporter			*logger;
 
 	if (getuid() != 0)
 	{
@@ -98,27 +166,37 @@ int main(int ac, char **av)
 	if (flock(fd_lock, LOCK_EX | LOCK_NB) == -1)
 	{
 		if (errno == EWOULDBLOCK)
-			std::cerr << "Error: /var/lock/matt_daemon.lock exists. Is an instance of Matt Daemon already running ?" << std::endl;
+			std::cerr << "Error: /var/lock/matt_daemon.lock is locked. Is an instance of Matt Daemon already running ?" << std::endl;
 		return (3);
 	}
+	g_pid = getpid();
 
 	try {
-		Tintin_reporter	 logger;
+		logger = new Tintin_reporter;
 	} catch (Matt_Exception exception)
 	{
 		std::cout << "Error ! - " << exception.what() << std::endl;
+		return (2);
 	}
 
 	daemonize();
+	signal(SIGCHLD, handle_sigchld);
+	logger->log(GREEN_LOG, "daemon launched");
 
 	suck = initialise_socket(av[1]);
 	if (suck == -1)
+	{
+		logger->log(ERROR_LOG, "can not initialise socket.");
 		return (suck);
+	}
 
 	listen(suck, 3);
 	other_len = sizeof(other);
-	client = accept(suck, reinterpret_cast<struct sockaddr *>(&other), &other_len);
-
+	while (1)
+	{
+		client = accept(suck, reinterpret_cast<struct sockaddr *>(&other), &other_len);
+		fork_accept(client, logger);
+	}
 	flock(fd_lock, LOCK_UN);
 	close(fd_lock);
 	unlink("/var/lock/matt_daemon.lock");

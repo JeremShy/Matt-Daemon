@@ -3,6 +3,13 @@
 
 # include <string>
 # include <iostream>
+# include <ctime>
+
+# define ERROR_LOG 0
+# define INFO_LOG 1
+# define GREEN_LOG 2
+# define DISCO_LOG 3
+
 
 class Tintin_reporter {
 public:
@@ -12,8 +19,12 @@ public:
 
 	Tintin_reporter & operator=(Tintin_reporter const & rhs);
 
+	void	log(int type, std::string str) const;
+
 private:
 	int	_fd;
+	std::string	getTime(void) const;
+	std::string	getTypeStr(int	type) const;
 };
 
 #endif

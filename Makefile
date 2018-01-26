@@ -1,6 +1,7 @@
 SRC_NAME =	main.cpp \
 			Tintin_reporter.cpp \
-			Matt_Exception.cpp
+			Matt_Exception.cpp \
+			get_next_line.cpp
 
 INC_PATH = ./includes
 OBJ_PATH = ./obj/

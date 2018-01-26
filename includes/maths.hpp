@@ -17,5 +17,10 @@
 # include <stdlib.h>
 # include <sys/file.h>
 # include <errno.h>
-
+# include <cstdlib>
+# include <sstream>
+# include <signal.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
 # endif
