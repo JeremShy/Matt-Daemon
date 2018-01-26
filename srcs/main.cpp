@@ -1,4 +1,6 @@
 #include <maths.hpp>
+#include <Tintin_reporter.hpp>
+#include <Matt_Exception.hpp>
 
 int	initialise_socket(char *porc)
 {
@@ -98,6 +100,13 @@ int main(int ac, char **av)
 		if (errno == EWOULDBLOCK)
 			std::cerr << "Error: /var/lock/matt_daemon.lock exists. Is an instance of Matt Daemon already running ?" << std::endl;
 		return (3);
+	}
+
+	try {
+		Tintin_reporter	 logger;
+	} catch (Matt_Exception exception)
+	{
+		std::cout << "Error ! - " << exception.what() << std::endl;
 	}
 
 	daemonize();

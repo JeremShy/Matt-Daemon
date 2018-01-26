@@ -11,8 +11,9 @@ public:
 	~Tintin_reporter(void);
 
 	Tintin_reporter & operator=(Tintin_reporter const & rhs);
+
 private:
-	int	fd;
+	int	_fd;
 };
-std::ostream& operator<<(std::ostream& os, const Tintin_reporter & rhs);
+
 #endif
