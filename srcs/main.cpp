@@ -3,9 +3,7 @@
 #include <Matt_Exception.hpp>
 #include <get_next_line.hpp>
 
-int g_nb_client = 0;
-int g_must_quit = 0;
-int	g_pid = 0;
+struct glob g_glob = {0, 0, 0, 0, 0, NULL};
 
 int	initialise_socket(char *porc)
 {
@@ -40,9 +38,9 @@ int	initialise_socket(char *porc)
 void	handle_sigchld(int p)
 {
 	p = 0;
-	g_nb_client--;
+	g_glob.g_nb_client--;
 	wait4(-1, NULL, WNOHANG, NULL);
-	if (g_must_quit)
+	if (g_glob.g_must_quit)
 		exit(0);
 }
 
@@ -95,7 +93,7 @@ void fork_accept(int client, Tintin_reporter *logger)
 	int	pid;
 	char	*s = NULL;
 
-	if (g_nb_client > 2)
+	if (g_glob.g_nb_client > 2)
 	{
 		logger->log(ERROR_LOG, "too much clients connected.");
 		shutdown(client, SHUT_RDWR);
@@ -112,13 +110,13 @@ void fork_accept(int client, Tintin_reporter *logger)
 			if (std::string(s) == std::string("quit"))
 			{
 				logger->log(INFO_LOG, "quitting because of user input.");
-				g_must_quit = 1;
-				kill(g_pid, SIGSEGV);
+				g_glob.g_must_quit = 1;
+				kill(g_glob.g_pid, SIGSEGV);
 				break;
 			}
 		}
 		std::stringstream ss;
-		ss << g_pid;
+		ss << g_glob.g_pid;
 		logger->log(DISCO_LOG, std::string("Client disconnected.") + std::string(ss.str()));
 		shutdown(client, SHUT_RDWR);
 		close(client);
@@ -126,14 +124,23 @@ void fork_accept(int client, Tintin_reporter *logger)
 	}
 	if (pid > 0)
 	{
-		g_nb_client++;
+		g_glob.g_nb_client++;
 		return ;
 	}
 }
 
 void	sig_handler(int sig)
 {
+	(void)sig;
+	g_glob.g_logger->log(ERROR_LOG, "Caught a signal. Shutting down now...");
+	shutdown(g_glob.g_socket, O_RDWR);
+	close(g_glob.g_socket);
 
+	flock(g_glob.g_fd_lock, LOCK_UN);
+	close(g_glob.g_fd_lock);
+	unlink("/var/lock/matt_daemon.lock");
+
+	kill(-1 * g_glob.g_pid, 9);
 }
 
 int main(int ac, char **av)
@@ -162,9 +169,11 @@ int main(int ac, char **av)
 			std::cerr << "Error: /var/lock/matt_daemon.lock is locked. Is an instance of Matt Daemon already running ?" << std::endl;
 		return (3);
 	}
+	g_glob.g_fd_lock = fd_lock;
 
 	try {
 		logger = new Tintin_reporter;
+		g_glob.g_logger = logger;
 	} catch (Matt_Exception exception)
 	{
 		std::cout << "Error ! - " << exception.what() << std::endl;
@@ -172,17 +181,19 @@ int main(int ac, char **av)
 	}
 
 	daemonize();
-	g_pid = getpid();
+	g_glob.g_pid = getpid();
 	signal(SIGCHLD, handle_sigchld);
 	logger->log(GREEN_LOG, "daemon launched");
 
 	int	i = 1;
 	do {
-		signal(i, sig_handler);
+		if (i != SIGCHLD)
+			signal(i, sig_handler);
 		i++;
 	}	while (i <= 31);
 
 	suck = initialise_socket(av[1]);
+	g_glob.g_socket = suck;
 	if (suck == -1)
 	{
 		logger->log(ERROR_LOG, "can not initialise socket.");
@@ -196,8 +207,5 @@ int main(int ac, char **av)
 		client = accept(suck, reinterpret_cast<struct sockaddr *>(&other), &other_len);
 		fork_accept(client, logger);
 	}
-	flock(fd_lock, LOCK_UN);
-	close(fd_lock);
-	unlink("/var/lock/matt_daemon.lock");
 	return (0);
 }

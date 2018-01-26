@@ -20,7 +20,18 @@
 # include <cstdlib>
 # include <sstream>
 # include <signal.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
+# include <sys/time.h>
+# include <sys/resource.h>
+# include <sys/wait.h>
+# include <Tintin_reporter.hpp>
+
+struct glob
+{
+	int g_nb_client;
+	int g_must_quit;
+	int	g_pid;
+	int	g_socket;
+	int g_fd_lock;
+	Tintin_reporter *g_logger;
+} ;
 # endif
