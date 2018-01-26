@@ -131,6 +131,11 @@ void fork_accept(int client, Tintin_reporter *logger)
 	}
 }
 
+void	sig_handler(int sig)
+{
+
+}
+
 int main(int ac, char **av)
 {
 	int						suck;
@@ -170,6 +175,12 @@ int main(int ac, char **av)
 	g_pid = getpid();
 	signal(SIGCHLD, handle_sigchld);
 	logger->log(GREEN_LOG, "daemon launched");
+
+	int	i = 1;
+	do {
+		signal(i, sig_handler);
+		i++;
+	}	while (i <= 31);
 
 	suck = initialise_socket(av[1]);
 	if (suck == -1)
