@@ -117,21 +117,9 @@ void fork_accept(int client, Tintin_reporter *logger)
 				break;
 			}
 		}
-		char buff[10] = {0};
-		int tmp;
-		int i = 0;
-
-		tmp = g_pid;
-		while (tmp)
-		{
-			if (buff[i] + (tmp & 15) <= 9)
-				buff[i] = (tmp & 15) + '0';
-			else
-				buff[i] = (tmp & 15) + 'a' - 10;
-			tmp = tmp >> 4;
-			i++;
-		}
-		logger->log(DISCO_LOG, std::string("Client disconnected.") + std::string(buff));
+		std::stringstream ss;
+		ss << g_pid;
+		logger->log(DISCO_LOG, std::string("Client disconnected.") + std::string(ss.str()));
 		shutdown(client, SHUT_RDWR);
 		close(client);
 		exit(0);
@@ -169,7 +157,6 @@ int main(int ac, char **av)
 			std::cerr << "Error: /var/lock/matt_daemon.lock is locked. Is an instance of Matt Daemon already running ?" << std::endl;
 		return (3);
 	}
-	g_pid = getpid();
 
 	try {
 		logger = new Tintin_reporter;
@@ -180,6 +167,7 @@ int main(int ac, char **av)
 	}
 
 	daemonize();
+	g_pid = getpid();
 	signal(SIGCHLD, handle_sigchld);
 	logger->log(GREEN_LOG, "daemon launched");
 
