@@ -70,19 +70,22 @@ void	daemonize()
 		std::cerr << "Can't chdir to / !" << std::endl;
 		exit(3);
 	}
+
 	i = 0;
 	while (i < 3)
 	{
 		close(i);
 		i++;
-	}
+	} // Close fd 0, 1 and 2
+
 	i = 0;
 	len = open("/dev/null", O_RDWR, 0);
 	while (i < 3)
 	{
 		dup2(len, i);
 		i++;
-	}
+	} //Redirects everything to /dev/null
+
 	if (len > 2)
 		close(len);
 	umask(027);
@@ -157,12 +160,14 @@ int main(int ac, char **av)
 		std::cerr << "Error : You have to be root in order to use this program." << std::endl;
 		return (2);
 	}
+
 	if (ac != 2)
 	{
-		std::cerr << "Error : please enter a port name (#BalanceTonPort)." << std::endl;
+		std::cerr << "Error : please enter a port name." << std::endl;
 		return (1);
 	}
-	fd_lock = open("/var/lock/matt_daemon.lock", O_CREAT | O_RDWR);
+
+	fd_lock = open("/var/lock/matt_daemon.lock", O_CREAT | O_RDWR, 0644);
 	if (flock(fd_lock, LOCK_EX | LOCK_NB) == -1)
 	{
 		if (errno == EWOULDBLOCK)
@@ -182,13 +187,16 @@ int main(int ac, char **av)
 
 	daemonize();
 	g_glob.g_pid = getpid();
-	signal(SIGCHLD, handle_sigchld);
+
+
 	logger->log(GREEN_LOG, "daemon launched");
 
 	int	i = 1;
 	do {
 		if (i != SIGCHLD)
 			signal(i, sig_handler);
+		else if (i == SIGCHLD)
+			signal(i, handle_sigchld);
 		i++;
 	}	while (i <= 31);
 
