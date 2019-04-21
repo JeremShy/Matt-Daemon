@@ -103,7 +103,6 @@ void fork_accept(int client, Tintin_reporter *logger)
 		close(client);
 		return ;
 	}
-	logger->log(GREEN_LOG, "new client connected.");
 	pid = fork();
 	if (pid == 0)
 	{
@@ -118,9 +117,7 @@ void fork_accept(int client, Tintin_reporter *logger)
 				break;
 			}
 		}
-		std::stringstream ss;
-		ss << g_glob.g_pid;
-		logger->log(DISCO_LOG, std::string("Client disconnected.") + std::string(ss.str()));
+		logger->log(DISCO_LOG, std::string("Client disconnected."));
 		shutdown(client, SHUT_RDWR);
 		close(client);
 		exit(0);
@@ -128,6 +125,8 @@ void fork_accept(int client, Tintin_reporter *logger)
 	if (pid > 0)
 	{
 		g_glob.g_nb_client++;
+
+		logger->log(GREEN_LOG, "new client connected. ");
 		return ;
 	}
 }
